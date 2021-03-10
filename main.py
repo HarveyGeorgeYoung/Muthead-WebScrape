@@ -11,7 +11,9 @@ def menu():
     print("Welcome to Harvey's MUTHEAD Scraper!\nPlease select an option:\n1. Best training/coin rating and price.\n2. Player price search.\n3. Set calculator.")
     userMenuChoice = input()
 
-    if (userMenuChoice == "1"): trainingCost()
+    if (userMenuChoice == "1"):
+        for i in range(80,100):
+            trainingPrice(i)
     if (userMenuChoice == "2"): playerSearch()
     if (userMenuChoice == "3"): print("Your choice was 3")
 
@@ -22,62 +24,52 @@ def playerSearch():
     print("Second name search: (Leave blank if none)")
     userSecondName = input()
 
-    pageSearchSource = "https://www.muthead.com/21/players/?name__icontains=" + userFirstName + "%20"+ userSecondName + "&page=1&summary_price__gte=1"
-    pageSearchRequest = requests.get(pageSearchSource).text
-    pageSearchSoup = BeautifulSoup(pageSearchRequest, 'lxml')
-    numberOfPages = pageSearchSoup.find('ul', class_="pagination").text
-    numberOfPages = numberOfPages.replace(" ", "")
-    numberOfPages = numberOfPages.replace("of", "")
-    numberOfPages = numberOfPages[10:]
-    numberOfPages = int(numberOfPages)
-
+    pageSearch = autoBS("https://www.muthead.com/21/players/?name__icontains=" + userFirstName + "%20"+ userSecondName + "&page=1&summary_price__gte=1")
+    numberOfPages = pageTxtCleaner(pageSearch.find('ul', class_="pagination").text)
     print(str(numberOfPages) + " number of pages")
-    print(tabulate([['','','','']],headers=['Name','Details','Rating','Price'], tablefmt='orgtbl'))
+
     for i in range(numberOfPages + 1):      # Number of pages plus one 
 
-        playerSearchSource = "https://www.muthead.com/21/players/?name__icontains=" + userFirstName + "%20"+ userSecondName + "&page={}&summary_price__gte=1".format(i)
-        playerSearchRequest = requests.get(playerSearchSource).text
-        playerSearchSoup = BeautifulSoup(playerSearchRequest, 'lxml')
+        playerSearch = autoBS("https://www.muthead.com/21/players/?name__icontains=" + userFirstName + "%20"+ userSecondName + "&page={}&summary_price__gte=1".format(i))
 
-        for a in playerSearchSoup.find_all('a', href=True, class_="player-listing__link"):
+        for a in playerSearch.find_all('a', href=True, class_="player-listing__link"):
+            
+            playerRating = textCleaner(a.find('div', class_="list-info-player__ovr").span.text)
+            playerName = textCleaner(a.find('div', class_="list-info-player__player-name").text)
+            playerDetails = textCleaner(a.find('div', class_="list-info-player__player-info").text)
+            playerPrice = priceCleaner(a.find('div', class_="player-listing__price-value").text)
 
-            playerRating = a.find('div', class_="list-info-player__i")
-            playerRating = playerRating.span.text
-            playerRating = playerRating.replace("  ", "")
-            playerRating = playerRating.replace("\n", "")
-
-            playerName = a.find('div', class_="list-info-player__player-name")
-            playerName = playerName.text
-            playerName = playerName.replace("  ", "")
-            playerName = playerName.replace("\n", "")
-
-            playerDetails = a.find('div', class_="list-info-player__player-info")
-            playerDetails = playerDetails.text
-            playerDetails = playerDetails.replace("  ", "")
-            playerDetails = playerDetails.replace("\n", "")
-
-            playerPrice = a.find('div', class_="player-listing__price-value")
-            playerPrice = playerPrice.text
-            playerPrice = playerPrice.replace("K", "")
-            playerPrice = float(playerPrice)
-            playerPrice = playerPrice * 1000
-            playerPrice = int(playerPrice)
-
-            f = open('test.txt', 'w')
-            f.write(playerName + playerDetails + playerRating + (str(playerPrice)))
-            f.close()
-            print(tabulate([[playerName,playerDetails,playerRating,str(playerPrice)]],headers=['Name','Details','Rating','Price'], tablefmt='orgtbl'))
+            print(playerRating,playerName,playerDetails,playerPrice)
 
 def trainingPrice(ovr):
-    ratingValueRequest = requests.get('https://www.muthead.com/21/players/?overall__gte=' + str(ovr) + '&overall__lte=' + str(ovr) + '&quicksell_currency=Training&show_training_ratio=true&summary_price__gte=500&sort_by=training_ratio&tier__in=1%2C2%2C3%2C4').text
-    ratingValueSoup = BeautifulSoup(ratingValueRequest, 'lxml')
-    ratingPrice = ratingValueSoup.find("div", class_="player-listing__price-value").text
-    priceRaw = ratingPrice.replace("K", "")
-    ratingPrice = float(priceRaw) * 1000
-    ratingPrice = round(ratingPrice)
+    ratingValue = autoBS('https://www.muthead.com/21/players/?overall__gte=' + str(ovr) + '&overall__lte=' + str(ovr) + '&quicksell_currency=Training&show_training_ratio=true&summary_price__gte=500&sort_by=training_ratio&tier__in=1%2C2%2C3%2C4')
+    ratingPrice = round(priceCleaner(ratingValue.find("div", class_="player-listing__price-value").text))
     trainingCostValue = ratingPrice/qsCheck(ovr)
     trainingCostValue = round(trainingCostValue, 2)
     print("[Rated: " + str(ovr) + "]" + "[Buying at: " + str(ratingPrice) + "]" + "[C/T: " + str(trainingCostValue) + "]")
+
+def autoBS(src):
+    rq = requests.get(src).text
+    sp = BeautifulSoup(rq, 'lxml')
+    return sp
+def pageTxtCleaner(txt):
+    txt = txt.replace(" ", "")
+    txt = txt.replace("of", "")
+    txt = txt[10:]
+    txt = int(txt)
+    return txt
+
+def textCleaner(txt):
+    txt = txt.replace("  ", "")
+    txt = txt.replace("\n", "")       
+    return txt
+
+def priceCleaner(value):
+    if "K" in value:
+        value = value.replace("K", "")
+        value = float(value) * 1000
+        value = round(value)
+    return value
 
 def qsCheck(ovr):
     if ovr == 80:
@@ -116,11 +108,11 @@ def qsCheck(ovr):
         qsValue = 36000
     if ovr == 97:
         qsValue = 50700
+    if ovr == 98:
+        qsValue = 71500
+    if ovr == 99:
+        qsValue = 100000
     return qsValue
-
-def trainingCost():
-    for i in range(80,97):
-        trainingPrice(i)
 
 def main():
     menu()
